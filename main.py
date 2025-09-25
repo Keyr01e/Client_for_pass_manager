@@ -1,17 +1,31 @@
-import tkinter
-from tkinter import ttk, messagebox
+# import tkinter
+# from tkinter import ttk, messagebox
 import requests
-from requests import session
-
 
 API_URL = 'http://127.0.0.1:8000'
 
-class APILogin:
+class APILogic:
     def __init__(self, base_url):
         self.base = base_url.rstrip('/')
         self.session = requests.Session()
-        self.token = None
+        self.cookie = {
+            'access_token': None
+        }
+        
+    def register(self, username, password):
+        """
+                Регистрация
+        """
+        url = f'{self.base}/auth/register'
 
+        data = {
+            "username": username,
+            "password": password
+        }
+
+        response = requests.post(url, json=data)
+        print(response.status_code)
+        return response.json()
 
     def login(self, username, password):
         """
@@ -33,36 +47,34 @@ class APILogin:
         }
 
         response = requests.post(url, data=payload, headers=headers)
-        self.token = response.cookies.get('access_token')
+        # self.token = response.cookies.get('access_token')
+        self.cookie = response.cookies 
         return response.status_code, response.json()
 
+    def logout(self):
+        if not self.cookie:
+            return
+        url = f'{self.base}/auth/logout'
+        response = requests.post(url, cookies=self.cookie)
+        self.cookie = None
+        return response.json(), response.status_code
 
-    def get_cookie(self):
-        cookie = {
-            'access_token': self.token
-        }
-        return cookie
 
-    def register(self, username, password):
+    def me(self):
         """
-                Регистрация
+                        Получить данные о пользователе
         """
-        url = f'{self.base}/auth/register'
-
-        data = {
-            "username": username,
-            "password": password
-        }
-
-        response = requests.post(url, json=data)
-        print(response.status_code)
+        url = f'{self.base}/auth/me'
+        response = requests.get(url, cookies=self.cookie)
         return response.json()
+
+
 
     def create_password_entry(self, service_name: str, service_username_or_email, service_password):
         """
                 Создание пароля
         """
-        if not self.token:
+        if not self.cookie:
             return
 
         url = f'{self.base}/passwords'
@@ -74,8 +86,8 @@ class APILogin:
 
         }
 
-        print(self.token)
-        response = requests.post(url, json=data, cookies=self.get_cookie())
+        print(self.cookie)
+        response = requests.post(url, json=data, cookies=self.cookie)
         print(response.text)
         return response.json()
 
@@ -83,12 +95,12 @@ class APILogin:
         """
                 Расшифровка пароля по id
         """
-        if not self.token:
+        if not self.cookie:
             return
         url = f'{self.base}/passwords/{entry_id}/decrypt'
 
 
-        response = requests.get(url, cookies=self.get_cookie())
+        response = requests.get(url, cookies=self.cookie)
         return response.json()
 
     def get_passwords(self):
@@ -96,19 +108,45 @@ class APILogin:
                         Получить все пароли(берётся пул от 0 до 100)
         """
 
-        if not self.token:
+        if not self.cookie:
             return
         url = f'{self.base}/passwords'
 
-        response = requests.get(url, cookies=self.get_cookie())
+        response = requests.get(url, cookies=self.cookie)
         return response.status_code, response.json()
 
+    def update_password_entry(self, entry_id, service_name, service_username_or_email, service_password):
+        """
+                        Обновить данные о сохраненном в бд пароле
+        """
+        url = f'{self.base}/passwords/{entry_id}'
 
+        data = {
+              "service_name": service_name,
+              "username_or_email": service_username_or_email,
+              "password": service_password
+                }
 
-root = APILogin(API_URL)
+        response = requests.put(url, json=data, cookies=self.cookie)
+        return response.json()
+
+    def delete_password_entry(self, entry_id):
+        if not self.cookie:
+            return
+
+        url = f'{self.base}/passwords/{entry_id}'
+
+        response = requests.delete(url, cookies=self.cookie)
+        return response.status_code, response.text
+
+root = APILogic(API_URL)
 
 # print(root.login('string', 'string'))
 print(root.login('string', 'string'))
 print(root.create_password_entry('asdla;skjfa', 'Nikita', 'aasdfasfsafasdasd'))
 # print(root.get_decoded_password(3))
-print(root.get_passwords())
+# print(root.get_passwords())
+# print(root.me())
+# print(root.update_password_entry(1, 'Pass manager', 'Username_for_passmanager', '121314'))
+# print(root.delete_password_entry(4))
+# print(root.logout())
